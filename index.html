@@ -11,6 +11,8 @@
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
   :root {
     --bg: #FBF9F7;
@@ -63,7 +65,8 @@
 
   /* ===== FILTERS ===== */
   .filter-bar { margin: 12px 0 8px; display: flex; flex-direction: column; gap: 8px; }
-  .search-bar { position: relative; }
+  .search-row { display: flex; gap: 8px; align-items: center; }
+  .search-bar { position: relative; flex: 1; }
   .search-bar input {
     width: 100%; padding: 10px 12px 10px 38px;
     border: 1.5px solid var(--border); border-radius: 12px;
@@ -74,15 +77,16 @@
   .search-bar svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); width: 17px; height: 17px; }
 
   .filter-row { display: flex; gap: 8px; }
-  .filter-select-wrap { position: relative; flex: 1; }
+  .filter-select-wrap { position: relative; flex: 1; min-width: 0; }
   .filter-select-wrap select {
-    width: 100%; padding: 8px 32px 8px 12px; border-radius: 12px; border: 1.5px solid var(--border);
-    background: var(--bg-card); font-family: var(--font-body); font-size: 0.82rem;
+    width: 100%; padding: 8px 28px 8px 10px; border-radius: 12px; border: 1.5px solid var(--border);
+    background: var(--bg-card); font-family: var(--font-body); font-size: 0.76rem;
     font-weight: 500; color: var(--text-soft); cursor: pointer; outline: none;
     appearance: none; -webkit-appearance: none; transition: all 0.2s;
+    text-overflow: ellipsis; overflow: hidden; white-space: nowrap;
   }
   .filter-select-wrap select:focus { border-color: var(--accent); color: var(--accent); }
-  .filter-select-wrap::after { content: '▾'; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 0.7rem; color: var(--text-muted); pointer-events: none; }
+  .filter-select-wrap::after { content: '▾'; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 0.65rem; color: var(--text-muted); pointer-events: none; }
 
   /* ===== EMPTY STATE ===== */
   .empty-state { text-align: center; padding: 70px 24px; animation: fadeUp 0.8s ease; grid-column: 1 / -1; }
@@ -110,8 +114,13 @@
   }
   .event-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
   .event-card:active { transform: scale(0.98); }
-  .event-card-image-wrap { position: relative; width: 100%; aspect-ratio: 16/10; background: var(--border); overflow: hidden; }
-  .event-card-image { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .event-card-image-wrap { position: relative; width: 100%; aspect-ratio: 16/10; background: var(--border); overflow: hidden; touch-action: pan-y; }
+  .event-card-image { width: 100%; height: 100%; object-fit: cover; display: block; transition: opacity 0.25s ease; }
+  .card-carousel { display: flex; width: 100%; height: 100%; transition: transform 0.3s ease; }
+  .card-carousel img { width: 100%; height: 100%; object-fit: cover; flex-shrink: 0; }
+  .card-dots { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; }
+  .card-dots span { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.45); transition: background 0.2s; }
+  .card-dots span.active { background: white; }
   .image-count-badge { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.6); color: white; font-size: 0.68rem; font-weight: 600; padding: 3px 8px; border-radius: 10px; backdrop-filter: blur(4px); }
   .event-card-body { padding: 12px 14px 14px; }
   .event-card-meta { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
@@ -159,14 +168,15 @@
   .form-group { margin-bottom: 14px; }
   .form-label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
   .form-input, .form-textarea, .form-select {
-    width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+    width: 100%; max-width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
     font-family: var(--font-body); font-size: 0.9rem; color: var(--text);
     background: var(--bg); transition: border-color 0.2s; outline: none;
+    box-sizing: border-box; -webkit-appearance: none; appearance: none;
   }
   .form-input:focus, .form-textarea:focus, .form-select:focus { border-color: var(--accent); }
   .form-textarea { resize: vertical; min-height: 68px; }
   .form-select {
-    appearance: none; -webkit-appearance: none; cursor: pointer;
+    cursor: pointer;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23a89e92' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
     background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px;
   }
@@ -230,7 +240,8 @@
 
   /* ===== DETAIL VIEW ===== */
   #detailView { position: fixed; inset: 0; background: var(--bg); z-index: 150; overflow-y: auto; display: none; }
-  .detail-carousel { position: relative; width: 100%; background: #1a1a1a; aspect-ratio: 16/10; overflow: hidden; }
+  .detail-carousel { position: relative; width: 100%; background: #1a1a1a; aspect-ratio: 16/10; overflow: hidden; max-height: 45vh; }
+  @media (min-width: 700px) { .detail-carousel { aspect-ratio: 21/9; max-height: 40vh; } }
   .detail-carousel img { width: 100%; height: 100%; object-fit: contain; display: none; cursor: pointer; }
   .detail-carousel img.active { display: block; }
   .carousel-nav { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; }
@@ -329,6 +340,19 @@
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+  /* ===== SYNC INDICATOR ===== */
+  .sync-status {
+    font-size: 0.62rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px; white-space: nowrap;
+  }
+  .sync-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: #bbb; flex-shrink: 0; transition: background 0.3s;
+  }
+  .sync-dot.online { background: #5cb85c; }
+  .sync-dot.syncing { background: var(--accent); animation: pulse 1s infinite; }
+  .sync-dot.offline { background: #bbb; }
+  .sync-dot.error { background: #d44; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
   @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
   ::-webkit-scrollbar { width: 0; }
 </style>
@@ -343,6 +367,7 @@
         <div class="header-subtitle">Unsere Erlebnisse</div>
       </div>
       <div class="header-right">
+        <div class="sync-status" id="syncStatus"><span class="sync-dot" id="syncDot"></span><span id="syncText">Verbinde…</span></div>
         <div class="header-count" id="eventCount">0 Erlebnisse</div>
         <button class="backup-btn" id="backupBtn">💾 Backup</button>
       </div>
@@ -351,9 +376,15 @@
 
   <main class="container" id="listView">
     <div class="filter-bar">
-      <div class="search-bar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input type="text" id="searchInput" placeholder="Suchen…">
+      <div class="search-row">
+        <div class="search-bar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="searchInput" placeholder="Suchen…">
+        </div>
+        <div class="toggle-wrap">
+          <span class="toggle-label">Bilder</span>
+          <button class="toggle on" id="previewToggle" aria-label="Bildvorschau ein/aus"></button>
+        </div>
       </div>
       <div class="filter-row">
         <div class="filter-select-wrap">
@@ -369,10 +400,6 @@
         </div>
         <div class="filter-select-wrap">
           <select id="monthFilter"><option value="all">Alle Zeiträume</option></select>
-        </div>
-        <div class="toggle-wrap">
-          <span class="toggle-label">Bilder</span>
-          <button class="toggle on" id="previewToggle" aria-label="Bildvorschau ein/aus"></button>
         </div>
       </div>
     </div>
@@ -461,7 +488,7 @@
       <div class="modal-handle"></div>
       <div class="modal-title">Daten sichern</div>
       <div class="backup-modal-body">
-        <p>Exportiere alle Einträge als Datei, um sie zu sichern oder auf ein anderes Gerät zu übertragen.</p>
+        <p>Vollbackup exportieren (Texte + Bilder) um alles zu sichern. Texte werden automatisch in der Cloud gespeichert, Bilder nur lokal.</p>
         <div class="backup-btns">
           <button class="primary-backup" id="exportBtn">📤 Backup exportieren</button>
           <button id="importBtn" style="position:relative;">📥 Backup importieren
@@ -486,56 +513,104 @@
 </div>
 
 <script>
-// ===== DB =====
-const DB='kulturtagebuch',V=1,ST='events';
-function openDB(){return new Promise((r,j)=>{const q=indexedDB.open(DB,V);q.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains(ST)){const s=d.createObjectStore(ST,{keyPath:'id'});s.createIndex('date','date')}};q.onsuccess=()=>r(q.result);q.onerror=()=>j(q.error)})}
-async function getAll(){const d=await openDB();return new Promise((r,j)=>{const t=d.transaction(ST,'readonly');const q=t.objectStore(ST).getAll();q.onsuccess=()=>r(q.result);q.onerror=()=>j(q.error)})}
-async function put(ev){const d=await openDB();return new Promise((r,j)=>{const t=d.transaction(ST,'readwrite');t.objectStore(ST).put(ev);t.oncomplete=()=>r();t.onerror=()=>j(t.error)})}
-async function del(id){const d=await openDB();return new Promise((r,j)=>{const t=d.transaction(ST,'readwrite');t.objectStore(ST).delete(id);t.oncomplete=()=>r();t.onerror=()=>j(t.error)})}
+// =============================================================
+// FIREBASE CONFIG — ERSETZE DIESE WERTE MIT DEINEN EIGENEN!
+// (Anleitung: siehe unten im Chat)
+// =============================================================
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBPdcNbPcRP3b3IMTvD6RGiEW3EYb90gCw",
+  authDomain: "kulturtagebuch.firebaseapp.com",
+  projectId: "kulturtagebuch",
+  storageBucket: "kulturtagebuch.firebasestorage.app",
+  messagingSenderId: "887152528973",
+  appId: "1:887152528973:web:de5ccca10d1a4baa7ed604"
+};
+
+// ===== FIREBASE INIT =====
+let db_fire = null;
+let firebaseReady = false;
+try {
+  if(FIREBASE_CONFIG.apiKey !== "DEIN_API_KEY"){
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db_fire = firebase.firestore();
+    db_fire.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+    firebaseReady = true;
+  }
+} catch(e) { console.warn('Firebase init error:', e); }
+
+const COLLECTION = 'events';
+
+// ===== SYNC STATUS =====
+function setSyncStatus(state, text) {
+  const dot=$('syncDot'), txt=$('syncText');
+  dot.className='sync-dot '+state; txt.textContent=text;
+}
+
+// ===== LOCAL DB (IndexedDB) =====
+const IDB='kulturtagebuch',IDB_V=2;
+function openIDB(){return new Promise((r,j)=>{const q=indexedDB.open(IDB,IDB_V);q.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains('images'))d.createObjectStore('images',{keyPath:'id'});if(!d.objectStoreNames.contains('events'))d.createObjectStore('events',{keyPath:'id'})};q.onsuccess=()=>r(q.result);q.onerror=()=>j(q.error)})}
+
+async function idbGet(store,id){try{const d=await openIDB();return new Promise(r=>{const t=d.transaction(store,'readonly');const q=t.objectStore(store).get(id);q.onsuccess=()=>r(q.result||null);q.onerror=()=>r(null)})}catch(e){return null}}
+async function idbGetAll(store){try{const d=await openIDB();return new Promise(r=>{const t=d.transaction(store,'readonly');const q=t.objectStore(store).getAll();q.onsuccess=()=>r(q.result||[]);q.onerror=()=>r([])})}catch(e){return[]}}
+async function idbPut(store,data){try{const d=await openIDB();return new Promise((r,j)=>{const t=d.transaction(store,'readwrite');t.objectStore(store).put(data);t.oncomplete=()=>r();t.onerror=()=>j(t.error)})}catch(e){}}
+async function idbDel(store,id){try{const d=await openIDB();return new Promise((r,j)=>{const t=d.transaction(store,'readwrite');t.objectStore(store).delete(id);t.oncomplete=()=>r();t.onerror=()=>j(t.error)})}catch(e){}}
+
+// ===== FIRESTORE OPS =====
+async function fsGetAll(){
+  if(!firebaseReady)return null;
+  try{const s=await db_fire.collection(COLLECTION).get();return s.docs.map(d=>({id:d.id,...d.data()}));}catch(e){return null;}
+}
+async function fsPut(ev){
+  if(!firebaseReady)return false;
+  try{const{images,...txt}=ev;txt.imageCount=(images||[]).length;await db_fire.collection(COLLECTION).doc(ev.id).set(txt);return true;}catch(e){return false;}
+}
+async function fsDel(id){
+  if(!firebaseReady)return false;
+  try{await db_fire.collection(COLLECTION).doc(id).delete();return true;}catch(e){return false;}
+}
+
+// ===== COMBINED DATA LAYER =====
+async function loadAllEvents(){
+  setSyncStatus('syncing','Synchronisiere…');
+  let events=[];
+  const cloud=await fsGetAll();
+  if(cloud!==null){
+    events=await Promise.all(cloud.map(async ce=>{const li=await idbGet('images',ce.id);return{...ce,images:li?.images||[]};}));
+    for(const ev of events)await idbPut('events',ev);
+    setSyncStatus('online','Cloud ✓');
+  }else{
+    const local=await idbGetAll('events');
+    events=await Promise.all(local.map(async le=>{const li=await idbGet('images',le.id);return{...le,images:li?.images||le.images||[]};}));
+    setSyncStatus(firebaseReady?'offline':'offline','Lokal');
+  }
+  return events;
+}
+
+async function saveEvent(ev){
+  await idbPut('images',{id:ev.id,images:ev.images||[]});
+  const synced=await fsPut(ev);
+  await idbPut('events',ev);
+  if(synced)setSyncStatus('online','Gespeichert ✓');
+  else setSyncStatus('offline','Lokal gespeichert');
+}
+
+async function deleteEvent(id){
+  await idbDel('images',id);
+  await idbDel('events',id);
+  const synced=await fsDel(id);
+  if(synced)setSyncStatus('online','Gelöscht ✓');
+  else setSyncStatus('offline','Lokal gelöscht');
+}
 
 // ===== SEED DATA =====
 const SEED_DATA = [
-  {
-    id: 'seed_avatar',
-    title: 'Avatar: Der Herr der Elemente in Concert',
-    date: '2026-03-20',
-    venue: 'Jahrhunderthalle Frankfurt',
-    category: 'Konzert',
-    notes: 'Der Emmy-prämierte Komponist und Musiker Jeremy Zuckerman ist der kreative Kopf hinter der Originalmusik der Serie Avatar: The Last Airbender In Concert. Gemeinsam mit Jeff Adams (dem ursprünglichen Editor der Serie) erweiterte Zuckerman eigens den Soundtrack für das Avatar Live-Erlebnis. Die spektakuläre Produktion unterstreicht nicht nur den epischen Umfang und die hohe Dramatik der Serie, sondern bietet auch ein aufregendes Novum – die Chance, die fesselnde Welt von Avatar: The Last Airbender durch ein Orchester live zu erleben.',
-    rating: 5,
-    images: [],
-    createdAt: Date.now(),
-    updatedAt: Date.now()
-  },
-  {
-    id: 'seed_kammer',
-    title: 'Kammerflimmer | Quartett-Freuden',
-    date: '2026-03-10',
-    venue: 'Internationales Theater Frankfurt',
-    category: 'Konzert',
-    notes: 'Im Latin Palace Changó im Frankfurter Bahnhofsviertel ist höfischer Bläserglanz zu erleben in einem reichen Trio-Programm rund um die Barockmeister Händel, Telemann und Co. Im Internationalen Theater Frankfurt gibt es Freude pur für alle Quartett-Freunde, wenn klassische Wiener Melange aus Heiterkeit und Melancholie auf farbigen französischen Impressionismus trifft. Erstmals ist die Orangerie im Günthersburgpark als Location beim Kammerflimmern dabei mit einem mitreißenden Trio-Programm mit Werken Schostakowitschs, Rachmaninows und Schuberts.',
-    rating: 5,
-    images: [],
-    createdAt: Date.now() - 1,
-    updatedAt: Date.now() - 1
-  },
-  {
-    id: 'seed_goldene',
-    title: 'Führung Goldene Waage | Belvederchen',
-    date: '2026-03-07',
-    venue: 'Historisches Museum Frankfurt',
-    category: 'Ausstellung',
-    notes: 'Das Historische Museum hat die Obergeschosse des Vorderhauses der Goldenen Waage mit Möbeln, Gemälden und Alltagsgegenständen des 17. und 18. Jahrhunderts eingerichtet. So könnte die wohlhabende Händlerfamilie van Hamel, die das Haus ursprünglich baute, gewohnt haben. Höhepunkt ist das „Belvederchen" mit seinem Ausblick auf den Dom und die umliegenden Dächer der neuen Altstadt.\n\nBereits 1899 hatte die Stadt das bedeutende Baudenkmal aus dem 17. Jahrhundert erworben und 1913 dem Historischen Museum übergeben. Das Museum richtete hier zu seinem 50. Jubiläum 1928 eine Ausstellung ein, die bis 1942 zu sehen war. Am 22. März 1944 wurde die Goldene Waage – wie der größte Teil der Frankfurter Altstadt – durch Bombardierungen im Zweiten Weltkrieg zerstört. Das Haus verschwand aus dem Stadtbild – bis zur detailgetreuen Rekonstruktion im Zuge des Dom-Römer-Projektes.',
-    rating: 5,
-    images: [],
-    createdAt: Date.now() - 2,
-    updatedAt: Date.now() - 2
-  }
+  {id:'seed_avatar',title:'Avatar: Der Herr der Elemente in Concert',date:'2026-03-20',venue:'Jahrhunderthalle Frankfurt',category:'Konzert',notes:'Der Emmy-prämierte Komponist und Musiker Jeremy Zuckerman ist der kreative Kopf hinter der Originalmusik der Serie Avatar: The Last Airbender In Concert. Gemeinsam mit Jeff Adams (dem ursprünglichen Editor der Serie) erweiterte Zuckerman eigens den Soundtrack für das Avatar Live-Erlebnis. Die spektakuläre Produktion unterstreicht nicht nur den epischen Umfang und die hohe Dramatik der Serie, sondern bietet auch ein aufregendes Novum – die Chance, die fesselnde Welt von Avatar: The Last Airbender durch ein Orchester live zu erleben.',rating:5,images:[],createdAt:Date.now(),updatedAt:Date.now()},
+  {id:'seed_kammer',title:'Kammerflimmer | Quartett-Freuden',date:'2026-03-10',venue:'Internationales Theater Frankfurt',category:'Konzert',notes:'Im Latin Palace Changó im Frankfurter Bahnhofsviertel ist höfischer Bläserglanz zu erleben in einem reichen Trio-Programm rund um die Barockmeister Händel, Telemann und Co. Im Internationalen Theater Frankfurt gibt es Freude pur für alle Quartett-Freunde, wenn klassische Wiener Melange aus Heiterkeit und Melancholie auf farbigen französischen Impressionismus trifft. Erstmals ist die Orangerie im Günthersburgpark als Location beim Kammerflimmern dabei mit einem mitreißenden Trio-Programm mit Werken Schostakowitschs, Rachmaninows und Schuberts.',rating:5,images:[],createdAt:Date.now()-1,updatedAt:Date.now()-1},
+  {id:'seed_goldene',title:'Führung Goldene Waage | Belvederchen',date:'2026-03-07',venue:'Historisches Museum Frankfurt',category:'Ausstellung',notes:'Das Historische Museum hat die Obergeschosse des Vorderhauses der Goldenen Waage mit Möbeln, Gemälden und Alltagsgegenständen des 17. und 18. Jahrhunderts eingerichtet. So könnte die wohlhabende Händlerfamilie van Hamel, die das Haus ursprünglich baute, gewohnt haben. Höhepunkt ist das „Belvederchen" mit seinem Ausblick auf den Dom und die umliegenden Dächer der neuen Altstadt.\n\nBereits 1899 hatte die Stadt das bedeutende Baudenkmal aus dem 17. Jahrhundert erworben und 1913 dem Historischen Museum übergeben. Das Museum richtete hier zu seinem 50. Jubiläum 1928 eine Ausstellung ein, die bis 1942 zu sehen war. Am 22. März 1944 wurde die Goldene Waage – wie der größte Teil der Frankfurter Altstadt – durch Bombardierungen im Zweiten Weltkrieg zerstört. Das Haus verschwand aus dem Stadtbild – bis zur detailgetreuen Rekonstruktion im Zuge des Dom-Römer-Projektes.',rating:5,images:[],createdAt:Date.now()-2,updatedAt:Date.now()-2}
 ];
 
 // ===== HELPERS =====
 function compressImage(file){return new Promise((res,rej)=>{if(file.size<200000){const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file);return}const img=new Image();const url=URL.createObjectURL(file);img.onload=()=>{const c=document.createElement('canvas');const M=1200;let w=img.width,h=img.height;if(w>M||h>M){if(w>h){h=h*M/w;w=M}else{w=w*M/h;h=M}}c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);res(c.toDataURL('image/jpeg',0.78));URL.revokeObjectURL(url)};img.onerror=rej;img.src=url})}
-
 const $=id=>document.getElementById(id);
 const MO=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 function fmtDate(d){const dt=new Date(d+'T00:00:00');return `${dt.getDate()}. ${MO[dt.getMonth()]} ${dt.getFullYear()}`}
@@ -549,23 +624,11 @@ function showToast(msg){const t=$('toast');t.textContent=msg;t.classList.add('sh
 // ===== STATE =====
 let allEvents=[],editingId=null,deletingId=null,formImages=[],formImagesEdited=false,formRating=0,activeCat='all',activeMonth='all',showPreviews=true;
 
-// ===== LIGHTBOX STATE =====
-let lbImages=[], lbIdx=0;
-function openLightbox(images, startIdx) {
-  lbImages=images; lbIdx=startIdx||0;
-  const lb=$('lightbox');
-  $('lbImg').src=lbImages[lbIdx];
-  $('lbPrev').style.display=lbImages.length>1?'flex':'none';
-  $('lbNext').style.display=lbImages.length>1?'flex':'none';
-  $('lbCounter').textContent=lbImages.length>1?`${lbIdx+1} / ${lbImages.length}`:'';
-  lb.classList.add('active');
-}
+// ===== LIGHTBOX =====
+let lbImages=[],lbIdx=0;
+function openLightbox(images,startIdx){lbImages=images;lbIdx=startIdx||0;$('lbImg').src=lbImages[lbIdx];$('lbPrev').style.display=lbImages.length>1?'flex':'none';$('lbNext').style.display=lbImages.length>1?'flex':'none';$('lbCounter').textContent=lbImages.length>1?`${lbIdx+1} / ${lbImages.length}`:'';$('lightbox').classList.add('active')}
 function closeLightbox(){$('lightbox').classList.remove('active')}
-function lbMove(dir){
-  lbIdx=(lbIdx+dir+lbImages.length)%lbImages.length;
-  $('lbImg').src=lbImages[lbIdx];
-  $('lbCounter').textContent=lbImages.length>1?`${lbIdx+1} / ${lbImages.length}`:'';
-}
+function lbMove(dir){lbIdx=(lbIdx+dir+lbImages.length)%lbImages.length;$('lbImg').src=lbImages[lbIdx];$('lbCounter').textContent=lbImages.length>1?`${lbIdx+1} / ${lbImages.length}`:''}
 $('lightbox').addEventListener('click',e=>{if(e.target===$('lightbox'))closeLightbox()});
 
 // ===== PREVIEW TOGGLE =====
@@ -583,33 +646,12 @@ $('starInput').addEventListener('click',e=>{const btn=e.target.closest('[data-st
 $('imageInput').addEventListener('change',async e=>{const files=[...e.target.files];for(const f of files){if(formImages.length>=10)break;const data=await compressImage(f);formImages.push({data})}formImagesEdited=true;renderImgPrev();e.target.value=''});
 function renderImgPrev(){const c=$('imagePreviews');c.innerHTML='';formImages.forEach((img,i)=>{const d=document.createElement('div');d.className='image-preview-thumb';d.draggable=true;d.dataset.idx=i;d.innerHTML=`<img src="${img.data}" alt=""><button class="remove-img" data-idx="${i}">✕</button><span class="drag-handle">⠿</span>`;c.appendChild(d)});
 c.querySelectorAll('.remove-img').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();formImages.splice(parseInt(btn.dataset.idx),1);formImagesEdited=true;renderImgPrev()}));
-// Drag reorder
 let dragIdx=null;
-c.querySelectorAll('.image-preview-thumb').forEach(el=>{
-  el.addEventListener('dragstart',e=>{dragIdx=parseInt(el.dataset.idx);el.style.opacity='0.4';e.dataTransfer.effectAllowed='move'});
-  el.addEventListener('dragend',()=>{el.style.opacity='1';dragIdx=null;c.querySelectorAll('.image-preview-thumb').forEach(x=>x.classList.remove('drag-over'))});
-  el.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='move';el.classList.add('drag-over')});
-  el.addEventListener('dragleave',()=>{el.classList.remove('drag-over')});
-  el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('drag-over');const toIdx=parseInt(el.dataset.idx);if(dragIdx!==null&&dragIdx!==toIdx){const item=formImages.splice(dragIdx,1)[0];formImages.splice(toIdx,0,item);formImagesEdited=true;renderImgPrev()}});
-});
-// Touch reorder
-let touchIdx=null,touchClone=null,touchStartY=0,touchStartX=0;
-c.querySelectorAll('.drag-handle').forEach(handle=>{
-  handle.addEventListener('touchstart',e=>{
-    e.preventDefault();const thumb=handle.closest('.image-preview-thumb');touchIdx=parseInt(thumb.dataset.idx);
-    touchClone=thumb.cloneNode(true);touchClone.style.cssText='position:fixed;z-index:999;opacity:0.8;pointer-events:none;width:68px;height:68px;';
-    const t=e.touches[0];touchStartX=t.clientX;touchStartY=t.clientY;
-    touchClone.style.left=(t.clientX-34)+'px';touchClone.style.top=(t.clientY-34)+'px';
-    document.body.appendChild(touchClone);thumb.style.opacity='0.3';
-  },{passive:false});
-});
+c.querySelectorAll('.image-preview-thumb').forEach(el=>{el.addEventListener('dragstart',e=>{dragIdx=parseInt(el.dataset.idx);el.style.opacity='0.4';e.dataTransfer.effectAllowed='move'});el.addEventListener('dragend',()=>{el.style.opacity='1';dragIdx=null;c.querySelectorAll('.image-preview-thumb').forEach(x=>x.classList.remove('drag-over'))});el.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='move';el.classList.add('drag-over')});el.addEventListener('dragleave',()=>{el.classList.remove('drag-over')});el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('drag-over');const toIdx=parseInt(el.dataset.idx);if(dragIdx!==null&&dragIdx!==toIdx){const item=formImages.splice(dragIdx,1)[0];formImages.splice(toIdx,0,item);formImagesEdited=true;renderImgPrev()}})});
+let touchIdx=null,touchClone=null;
+c.querySelectorAll('.drag-handle').forEach(handle=>{handle.addEventListener('touchstart',e=>{e.preventDefault();const thumb=handle.closest('.image-preview-thumb');touchIdx=parseInt(thumb.dataset.idx);touchClone=thumb.cloneNode(true);touchClone.style.cssText='position:fixed;z-index:999;opacity:0.8;pointer-events:none;width:68px;height:68px;';const t=e.touches[0];touchClone.style.left=(t.clientX-34)+'px';touchClone.style.top=(t.clientY-34)+'px';document.body.appendChild(touchClone);thumb.style.opacity='0.3'},{passive:false})});
 document.addEventListener('touchmove',e=>{if(!touchClone)return;const t=e.touches[0];touchClone.style.left=(t.clientX-34)+'px';touchClone.style.top=(t.clientY-34)+'px'},{passive:true});
-document.addEventListener('touchend',e=>{if(touchClone){touchClone.remove();touchClone=null;
-  const t=e.changedTouches[0];const el=document.elementFromPoint(t.clientX,t.clientY);
-  const thumb=el?.closest?.('.image-preview-thumb');
-  if(thumb){const toIdx=parseInt(thumb.dataset.idx);if(touchIdx!==null&&touchIdx!==toIdx){const item=formImages.splice(touchIdx,1)[0];formImages.splice(toIdx,0,item);formImagesEdited=true}}
-  touchIdx=null;renderImgPrev()}
-})}
+document.addEventListener('touchend',e=>{if(touchClone){touchClone.remove();touchClone=null;const t=e.changedTouches[0];const el=document.elementFromPoint(t.clientX,t.clientY);const thumb=el?.closest?.('.image-preview-thumb');if(thumb){const toIdx=parseInt(thumb.dataset.idx);if(touchIdx!==null&&touchIdx!==toIdx){const item=formImages.splice(touchIdx,1)[0];formImages.splice(toIdx,0,item);formImagesEdited=true}}touchIdx=null;renderImgPrev()}})}
 
 // ===== RENDER LIST =====
 function renderList(){
@@ -624,39 +666,28 @@ function renderList(){
   if(f.length===0){$('eventList').innerHTML=`<div class="empty-state"><div class="empty-icon">${total===0?'🎭':'🔍'}</div><h2>${total===0?'Noch keine Erinnerungen':'Keine Treffer'}</h2><p>${total===0?'Tippe auf „Neuer Eintrag" um loszulegen':'Versuche andere Filter oder Suchbegriffe'}</p></div>`;return}
   const grouped={};f.forEach(e=>{const y=getYear(e.date);if(!grouped[y])grouped[y]=[];grouped[y].push(e)});
   let html='';
-  Object.keys(grouped).sort((a,b)=>b-a).forEach(year=>{
-    const items=grouped[year];
+  Object.keys(grouped).sort((a,b)=>b-a).forEach(year=>{const items=grouped[year];
     html+=`<div class="year-section"><div class="year-divider"><span class="year-label">${year}</span><div class="year-line"></div><span class="year-count">${items.length} ${items.length===1?'Erlebnis':'Erlebnisse'}</span></div><div class="card-grid">`;
-    items.forEach((e,i)=>{
-      const imgs=e.images||(e.image?[e.image]:[]);
-      const first=imgs[0];
-      html+=`<div class="event-card" onclick="showDetail('${e.id}')" style="animation-delay:${i*0.05}s">
-        ${first&&showPreviews?`<div class="event-card-image-wrap"><img class="event-card-image" src="${first}" alt="" loading="lazy">${imgs.length>1?`<span class="image-count-badge">📷 ${imgs.length}</span>`:''}</div>`:''}
-        <div class="event-card-body">
-          ${e.category?`<span class="category-tag">${esc(e.category)}</span>`:''}
-          <div class="event-card-meta"><span class="event-card-date">${fmtDate(e.date)}</span>${e.rating?`<span class="stars">${starsH(e.rating)}</span>`:''}</div>
-          <div class="event-card-title">${esc(e.title)}</div>
-          ${e.venue?`<div class="event-card-venue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${esc(e.venue)}</div>`:''}
-        </div></div>`;
-    });
-    html+=`</div></div>`;
-  });
-  $('eventList').innerHTML=html;
+    items.forEach((e,i)=>{const imgs=e.images||(e.image?[e.image]:[]);const first=imgs[0];const cardId='card_'+e.id;let imgHtml='';
+      if(first&&showPreviews){if(imgs.length>1){imgHtml=`<div class="event-card-image-wrap" data-card-carousel="${cardId}" onclick="event.stopPropagation()"><div class="card-carousel" data-idx="0">${imgs.map(img=>`<img src="${img}" alt="" loading="lazy">`).join('')}</div><div class="card-dots">${imgs.map((_,j)=>`<span class="${j===0?'active':''}"></span>`).join('')}</div></div>`}else{imgHtml=`<div class="event-card-image-wrap"><img class="event-card-image" src="${first}" alt="" loading="lazy"></div>`}}
+      html+=`<div class="event-card" onclick="showDetail('${e.id}')" style="animation-delay:${i*0.05}s">${imgHtml}<div class="event-card-body">${e.category?`<span class="category-tag">${esc(e.category)}</span>`:''}<div class="event-card-meta"><span class="event-card-date">${fmtDate(e.date)}</span>${e.rating?`<span class="stars">${starsH(e.rating)}</span>`:''}</div><div class="event-card-title">${esc(e.title)}</div>${e.venue?`<div class="event-card-venue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${esc(e.venue)}</div>`:''}</div></div>`;});
+    html+=`</div></div>`;});
+  $('eventList').innerHTML=html;initCardCarousels();
 }
+
+// ===== CARD CAROUSEL SWIPE =====
+function initCardCarousels(){document.querySelectorAll('[data-card-carousel]').forEach(wrap=>{const track=wrap.querySelector('.card-carousel');const dots=[...wrap.querySelectorAll('.card-dots span')];const count=track.children.length;let idx=0,startX=0,dx=0,dragging=false;
+function goTo(i){idx=Math.max(0,Math.min(count-1,i));track.style.transform=`translateX(-${idx*100}%)`;dots.forEach((d,j)=>d.classList.toggle('active',j===idx))}
+wrap.addEventListener('touchstart',e=>{startX=e.touches[0].clientX;dx=0;dragging=true;track.style.transition='none'},{passive:true});
+wrap.addEventListener('touchmove',e=>{if(!dragging)return;dx=e.touches[0].clientX-startX;track.style.transform=`translateX(calc(-${idx*100}% + ${dx}px))`},{passive:true});
+wrap.addEventListener('touchend',()=>{if(!dragging)return;dragging=false;track.style.transition='transform 0.3s ease';if(Math.abs(dx)>40){goTo(idx+(dx<0?1:-1))}else{goTo(idx)}dx=0});
+wrap.addEventListener('click',e=>{const rect=wrap.getBoundingClientRect();const x=e.clientX-rect.left;if(x<rect.width*0.3){goTo(idx-1)}else if(x>rect.width*0.7){goTo(idx+1)}else{const card=wrap.closest('.event-card');if(card)card.click()}});})}
 
 // ===== DETAIL =====
 let carouselIdx=0;
-function showDetail(id){
-  const e=allEvents.find(ev=>ev.id===id);if(!e)return;
-  const imgs=e.images||(e.image?[e.image]:[]);carouselIdx=0;
-  $('fabBtn').style.display='none';$('listView').style.display='none';document.querySelector('.header').style.display='none';
-  const dv=$('detailView');dv.style.display='block';dv.scrollTop=0;
-  let ch='';
-  if(imgs.length>0){
-    ch=`<div class="detail-carousel" id="carousel">${imgs.map((img,i)=>`<img src="${img}" alt="" class="${i===0?'active':''}" onclick="openLightbox(${JSON.stringify(imgs).replace(/"/g,'&quot;')}, ${i})">`).join('')}${imgs.length>1?`<button class="carousel-arrow left" onclick="carouselMove(-1)">‹</button><button class="carousel-arrow right" onclick="carouselMove(1)">›</button><div class="carousel-nav">${imgs.map((_,i)=>`<button class="carousel-dot ${i===0?'active':''}" onclick="carouselGo(${i})"></button>`).join('')}</div>`:''}<button class="back-btn" onclick="closeDetail()">←</button></div>`;
-  }else{ch=`<div style="height:52px;position:relative;"><button class="back-btn" onclick="closeDetail()">←</button></div>`}
-  dv.innerHTML=`${ch}<div class="detail-body">${e.category?`<span class="category-tag">${esc(e.category)}</span>`:''}<div class="detail-date">${fmtDate(e.date)}</div><div class="detail-title">${esc(e.title)}</div>${e.rating?`<div class="detail-stars">${starsH(e.rating)}</div>`:''}${e.venue?`<div class="detail-venue"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${esc(e.venue)}</div>`:''}${e.notes?`<div class="detail-desc">${esc(e.notes).replace(/\n/g,'<br>')}</div>`:''}<div class="detail-actions"><button class="btn-icon" onclick="openEdit('${e.id}')">✏️ Bearbeiten</button><button class="btn-icon danger" onclick="confirmDeletePrompt('${e.id}')">🗑 Löschen</button></div></div>`;
-}
+function showDetail(id){const e=allEvents.find(ev=>ev.id===id);if(!e)return;const imgs=e.images||(e.image?[e.image]:[]);carouselIdx=0;$('fabBtn').style.display='none';$('listView').style.display='none';document.querySelector('.header').style.display='none';const dv=$('detailView');dv.style.display='block';dv.scrollTop=0;let ch='';
+if(imgs.length>0){ch=`<div class="detail-carousel" id="carousel">${imgs.map((img,i)=>`<img src="${img}" alt="" class="${i===0?'active':''}" onclick="openLightbox(${JSON.stringify(imgs).replace(/"/g,'&quot;')}, ${i})">`).join('')}${imgs.length>1?`<button class="carousel-arrow left" onclick="carouselMove(-1)">‹</button><button class="carousel-arrow right" onclick="carouselMove(1)">›</button><div class="carousel-nav">${imgs.map((_,i)=>`<button class="carousel-dot ${i===0?'active':''}" onclick="carouselGo(${i})"></button>`).join('')}</div>`:''}<button class="back-btn" onclick="closeDetail()">←</button></div>`}else{ch=`<div style="height:52px;position:relative;"><button class="back-btn" onclick="closeDetail()">←</button></div>`}
+dv.innerHTML=`${ch}<div class="detail-body">${e.category?`<span class="category-tag">${esc(e.category)}</span>`:''}<div class="detail-date">${fmtDate(e.date)}</div><div class="detail-title">${esc(e.title)}</div>${e.rating?`<div class="detail-stars">${starsH(e.rating)}</div>`:''}${e.venue?`<div class="detail-venue"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${esc(e.venue)}</div>`:''}${e.notes?`<div class="detail-desc">${esc(e.notes).replace(/\n/g,'<br>')}</div>`:''}<div class="detail-actions"><button class="btn-icon" onclick="openEdit('${e.id}')">✏️ Bearbeiten</button><button class="btn-icon danger" onclick="confirmDeletePrompt('${e.id}')">🗑 Löschen</button></div></div>`}
 function carouselMove(dir){const imgs=document.querySelectorAll('#carousel img');const dots=document.querySelectorAll('#carousel .carousel-dot');imgs[carouselIdx].classList.remove('active');if(dots[carouselIdx])dots[carouselIdx].classList.remove('active');carouselIdx=(carouselIdx+dir+imgs.length)%imgs.length;imgs[carouselIdx].classList.add('active');if(dots[carouselIdx])dots[carouselIdx].classList.add('active')}
 function carouselGo(i){const imgs=document.querySelectorAll('#carousel img');const dots=document.querySelectorAll('#carousel .carousel-dot');imgs[carouselIdx].classList.remove('active');if(dots[carouselIdx])dots[carouselIdx].classList.remove('active');carouselIdx=i;imgs[carouselIdx].classList.add('active');if(dots[carouselIdx])dots[carouselIdx].classList.add('active')}
 function closeDetail(){$('detailView').style.display='none';$('listView').style.display='block';document.querySelector('.header').style.display='block';$('fabBtn').style.display='flex'}
@@ -674,35 +705,19 @@ $('saveBtn').addEventListener('click',async()=>{
   const title=$('titleInput').value.trim(),date=$('dateInput').value;
   if(!title||!date){$('titleInput').style.borderColor=!title?'#d44':'';$('dateInput').style.borderColor=!date?'#d44':'';return}
   $('titleInput').style.borderColor='';$('dateInput').style.borderColor='';
-  const ex=editingId?allEvents.find(e=>e.id===editingId):null;
-  const exImgs=ex?.images||(ex?.image?[ex.image]:[]);
-  const ev={
-    id:editingId||Date.now().toString(36)+Math.random().toString(36).substr(2,5),
-    title,date,venue:$('venueInput').value.trim(),category:$('categorySelectInput').value,
-    notes:$('notesInput').value.trim(),rating:formRating,
-    images:formImagesEdited?formImages.map(i=>i.data):(editingId?exImgs:[]),
-    createdAt:ex?.createdAt||Date.now(),updatedAt:Date.now()
-  };
-  await put(ev);allEvents=await getAll();buildMonthFilter();renderList();closeModal();
-  if(editingId)closeDetail();
-  showToast(editingId?'Erinnerung aktualisiert ✓':'Erinnerung gespeichert ✓');
+  const ex=editingId?allEvents.find(e=>e.id===editingId):null;const exImgs=ex?.images||(ex?.image?[ex.image]:[]);
+  const ev={id:editingId||Date.now().toString(36)+Math.random().toString(36).substr(2,5),title,date,venue:$('venueInput').value.trim(),category:$('categorySelectInput').value,notes:$('notesInput').value.trim(),rating:formRating,images:formImagesEdited?formImages.map(i=>i.data):(editingId?exImgs:[]),createdAt:ex?.createdAt||Date.now(),updatedAt:Date.now()};
+  await saveEvent(ev);allEvents=await loadAllEvents();buildMonthFilter();renderList();closeModal();
+  if(editingId)closeDetail();showToast(editingId?'Erinnerung aktualisiert ✓':'Erinnerung gespeichert ✓');
 });
 
 // ===== EDIT =====
-function openEdit(id){
-  const e=allEvents.find(ev=>ev.id===id);if(!e)return;
-  editingId=id;$('titleInput').value=e.title;$('dateInput').value=e.date;
-  $('venueInput').value=e.venue||'';$('categorySelectInput').value=e.category||'';
-  $('notesInput').value=e.notes||'';formRating=e.rating||0;
-  formImages=(e.images||(e.image?[e.image]:[])).map(d=>({data:d}));formImagesEdited=false;
-  document.querySelectorAll('#starInput button').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.star)<=formRating));
-  renderImgPrev();$('modalTitle').textContent='Erinnerung bearbeiten';$('saveBtn').textContent='Änderungen speichern';openModal();
-}
+function openEdit(id){const e=allEvents.find(ev=>ev.id===id);if(!e)return;editingId=id;$('titleInput').value=e.title;$('dateInput').value=e.date;$('venueInput').value=e.venue||'';$('categorySelectInput').value=e.category||'';$('notesInput').value=e.notes||'';formRating=e.rating||0;formImages=(e.images||(e.image?[e.image]:[])).map(d=>({data:d}));formImagesEdited=false;document.querySelectorAll('#starInput button').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.star)<=formRating));renderImgPrev();$('modalTitle').textContent='Erinnerung bearbeiten';$('saveBtn').textContent='Änderungen speichern';openModal()}
 
 // ===== DELETE =====
 function confirmDeletePrompt(id){deletingId=id;$('confirmOverlay').classList.add('active')}
 $('confirmCancel').addEventListener('click',()=>{$('confirmOverlay').classList.remove('active');deletingId=null});
-$('confirmDelete').addEventListener('click',async()=>{if(!deletingId)return;await del(deletingId);allEvents=await getAll();buildMonthFilter();renderList();$('confirmOverlay').classList.remove('active');closeDetail();deletingId=null;showToast('Erinnerung gelöscht')});
+$('confirmDelete').addEventListener('click',async()=>{if(!deletingId)return;await deleteEvent(deletingId);allEvents=await loadAllEvents();buildMonthFilter();renderList();$('confirmOverlay').classList.remove('active');closeDetail();deletingId=null;showToast('Erinnerung gelöscht')});
 
 // ===== SEARCH =====
 $('searchInput').addEventListener('input',()=>renderList());
@@ -711,34 +726,11 @@ $('searchInput').addEventListener('input',()=>renderList());
 $('backupBtn').addEventListener('click',()=>{$('backupOverlay').classList.add('active');document.body.style.overflow='hidden'});
 $('backupClose').addEventListener('click',()=>{$('backupOverlay').classList.remove('active');document.body.style.overflow=''});
 $('backupOverlay').addEventListener('click',e=>{if(e.target===$('backupOverlay')){$('backupOverlay').classList.remove('active');document.body.style.overflow=''}});
-$('exportBtn').addEventListener('click',async()=>{
-  const data=JSON.stringify(allEvents,null,2);const blob=new Blob([data],{type:'application/json'});
-  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;
-  a.download=`kulturtagebuch-backup-${new Date().toISOString().split('T')[0]}.json`;
-  a.click();URL.revokeObjectURL(url);showToast('Backup heruntergeladen ✓');
-});
-$('importFileInput').addEventListener('change',async e=>{
-  const file=e.target.files[0];if(!file)return;
-  try{const text=await file.text();const data=JSON.parse(text);if(!Array.isArray(data))throw 0;
-    let c=0;for(const ev of data){if(ev.id&&ev.title&&ev.date){await put(ev);c++}}
-    allEvents=await getAll();buildMonthFilter();renderList();
-    showToast(`${c} Einträge importiert ✓`);
-    $('backupOverlay').classList.remove('active');document.body.style.overflow='';
-  }catch(err){showToast('Fehler beim Import — ungültige Datei')}
-  e.target.value='';
-});
+$('exportBtn').addEventListener('click',async()=>{const data=JSON.stringify(allEvents,null,2);const blob=new Blob([data],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`kulturtagebuch-vollbackup-${new Date().toISOString().split('T')[0]}.json`;a.click();URL.revokeObjectURL(url);showToast('Vollbackup heruntergeladen ✓')});
+$('importFileInput').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{const text=await file.text();const data=JSON.parse(text);if(!Array.isArray(data))throw 0;let c=0;for(const ev of data){if(ev.id&&ev.title&&ev.date){await saveEvent(ev);c++}}allEvents=await loadAllEvents();buildMonthFilter();renderList();showToast(`${c} Einträge importiert ✓`);$('backupOverlay').classList.remove('active');document.body.style.overflow=''}catch(err){showToast('Fehler beim Import — ungültige Datei')}e.target.value=''});
 
-// ===== INIT WITH SEED =====
-(async()=>{
-  allEvents=await getAll();
-  // Seed if empty
-  if(allEvents.length===0){
-    for(const s of SEED_DATA){await put(s)}
-    allEvents=await getAll();
-  }
-  buildMonthFilter();renderList();
-})();
-
+// ===== INIT =====
+(async()=>{allEvents=await loadAllEvents();if(allEvents.length===0){for(const s of SEED_DATA){await saveEvent(s)}allEvents=await loadAllEvents()}buildMonthFilter();renderList()})();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
