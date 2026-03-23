@@ -195,6 +195,29 @@
     background: rgba(0,0,0,0.6); color: white; border: none; font-size: 0.65rem; cursor: pointer;
     display: flex; align-items: center; justify-content: center; line-height: 1;
   }
+  .image-preview-thumb .drag-handle {
+    position: absolute; bottom: 2px; left: 2px; width: 20px; height: 20px; border-radius: 4px;
+    background: rgba(0,0,0,0.5); color: white; font-size: 0.6rem; cursor: grab;
+    display: flex; align-items: center; justify-content: center; line-height: 1;
+    user-select: none; -webkit-user-select: none;
+  }
+  .image-preview-thumb.drag-over { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  /* ===== PREVIEW TOGGLE ===== */
+  .toggle-wrap {
+    display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  }
+  .toggle-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 500; white-space: nowrap; }
+  .toggle {
+    position: relative; width: 38px; height: 22px; border-radius: 11px;
+    background: var(--border); border: none; cursor: pointer; transition: background 0.2s; padding: 0;
+  }
+  .toggle.on { background: var(--accent); }
+  .toggle::after {
+    content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+    border-radius: 50%; background: white; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  }
+  .toggle.on::after { transform: translateX(16px); }
 
   /* ===== BUTTONS ===== */
   .btn-primary {
@@ -347,6 +370,10 @@
         <div class="filter-select-wrap">
           <select id="monthFilter"><option value="all">Alle Zeiträume</option></select>
         </div>
+        <div class="toggle-wrap">
+          <span class="toggle-label">Bilder</span>
+          <button class="toggle on" id="previewToggle" aria-label="Bildvorschau ein/aus"></button>
+        </div>
       </div>
     </div>
     <div id="eventList"></div>
@@ -487,7 +514,7 @@ const SEED_DATA = [
     venue: 'Internationales Theater Frankfurt',
     category: 'Konzert',
     notes: 'Im Latin Palace Changó im Frankfurter Bahnhofsviertel ist höfischer Bläserglanz zu erleben in einem reichen Trio-Programm rund um die Barockmeister Händel, Telemann und Co. Im Internationalen Theater Frankfurt gibt es Freude pur für alle Quartett-Freunde, wenn klassische Wiener Melange aus Heiterkeit und Melancholie auf farbigen französischen Impressionismus trifft. Erstmals ist die Orangerie im Günthersburgpark als Location beim Kammerflimmern dabei mit einem mitreißenden Trio-Programm mit Werken Schostakowitschs, Rachmaninows und Schuberts.',
-    rating: 4,
+    rating: 5,
     images: [],
     createdAt: Date.now() - 1,
     updatedAt: Date.now() - 1
@@ -499,7 +526,7 @@ const SEED_DATA = [
     venue: 'Historisches Museum Frankfurt',
     category: 'Ausstellung',
     notes: 'Das Historische Museum hat die Obergeschosse des Vorderhauses der Goldenen Waage mit Möbeln, Gemälden und Alltagsgegenständen des 17. und 18. Jahrhunderts eingerichtet. So könnte die wohlhabende Händlerfamilie van Hamel, die das Haus ursprünglich baute, gewohnt haben. Höhepunkt ist das „Belvederchen" mit seinem Ausblick auf den Dom und die umliegenden Dächer der neuen Altstadt.\n\nBereits 1899 hatte die Stadt das bedeutende Baudenkmal aus dem 17. Jahrhundert erworben und 1913 dem Historischen Museum übergeben. Das Museum richtete hier zu seinem 50. Jubiläum 1928 eine Ausstellung ein, die bis 1942 zu sehen war. Am 22. März 1944 wurde die Goldene Waage – wie der größte Teil der Frankfurter Altstadt – durch Bombardierungen im Zweiten Weltkrieg zerstört. Das Haus verschwand aus dem Stadtbild – bis zur detailgetreuen Rekonstruktion im Zuge des Dom-Römer-Projektes.',
-    rating: 4,
+    rating: 5,
     images: [],
     createdAt: Date.now() - 2,
     updatedAt: Date.now() - 2
@@ -520,7 +547,7 @@ function starsH(r){if(!r)return '';let h='';for(let i=1;i<=5;i++)h+=`<span class
 function showToast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
 
 // ===== STATE =====
-let allEvents=[],editingId=null,deletingId=null,formImages=[],formRating=0,activeCat='all',activeMonth='all';
+let allEvents=[],editingId=null,deletingId=null,formImages=[],formImagesEdited=false,formRating=0,activeCat='all',activeMonth='all',showPreviews=true;
 
 // ===== LIGHTBOX STATE =====
 let lbImages=[], lbIdx=0;
@@ -541,6 +568,9 @@ function lbMove(dir){
 }
 $('lightbox').addEventListener('click',e=>{if(e.target===$('lightbox'))closeLightbox()});
 
+// ===== PREVIEW TOGGLE =====
+$('previewToggle').addEventListener('click',()=>{showPreviews=!showPreviews;$('previewToggle').classList.toggle('on',showPreviews);renderList()});
+
 // ===== FILTERS =====
 $('categoryFilter').addEventListener('change',()=>{activeCat=$('categoryFilter').value;renderList()});
 function buildMonthFilter(){const ms=new Set();allEvents.forEach(e=>ms.add(getMonthYear(e.date)));const sorted=[...ms].sort().reverse();const mf=$('monthFilter');mf.innerHTML='<option value="all">Alle Zeiträume</option>';sorted.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=fmtMonthYear(m);mf.appendChild(o)});mf.value=activeMonth}
@@ -550,8 +580,36 @@ $('monthFilter').addEventListener('change',()=>{activeMonth=$('monthFilter').val
 $('starInput').addEventListener('click',e=>{const btn=e.target.closest('[data-star]');if(!btn)return;const v=parseInt(btn.dataset.star);formRating=formRating===v?0:v;document.querySelectorAll('#starInput button').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.star)<=formRating))});
 
 // ===== MULTI IMAGE =====
-$('imageInput').addEventListener('change',async e=>{const files=[...e.target.files];for(const f of files){if(formImages.length>=10)break;const data=await compressImage(f);formImages.push({data})}renderImgPrev();e.target.value=''});
-function renderImgPrev(){const c=$('imagePreviews');c.innerHTML='';formImages.forEach((img,i)=>{const d=document.createElement('div');d.className='image-preview-thumb';d.innerHTML=`<img src="${img.data}" alt=""><button class="remove-img" data-idx="${i}">✕</button>`;c.appendChild(d)});c.querySelectorAll('.remove-img').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();formImages.splice(parseInt(btn.dataset.idx),1);renderImgPrev()}))}
+$('imageInput').addEventListener('change',async e=>{const files=[...e.target.files];for(const f of files){if(formImages.length>=10)break;const data=await compressImage(f);formImages.push({data})}formImagesEdited=true;renderImgPrev();e.target.value=''});
+function renderImgPrev(){const c=$('imagePreviews');c.innerHTML='';formImages.forEach((img,i)=>{const d=document.createElement('div');d.className='image-preview-thumb';d.draggable=true;d.dataset.idx=i;d.innerHTML=`<img src="${img.data}" alt=""><button class="remove-img" data-idx="${i}">✕</button><span class="drag-handle">⠿</span>`;c.appendChild(d)});
+c.querySelectorAll('.remove-img').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();formImages.splice(parseInt(btn.dataset.idx),1);formImagesEdited=true;renderImgPrev()}));
+// Drag reorder
+let dragIdx=null;
+c.querySelectorAll('.image-preview-thumb').forEach(el=>{
+  el.addEventListener('dragstart',e=>{dragIdx=parseInt(el.dataset.idx);el.style.opacity='0.4';e.dataTransfer.effectAllowed='move'});
+  el.addEventListener('dragend',()=>{el.style.opacity='1';dragIdx=null;c.querySelectorAll('.image-preview-thumb').forEach(x=>x.classList.remove('drag-over'))});
+  el.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='move';el.classList.add('drag-over')});
+  el.addEventListener('dragleave',()=>{el.classList.remove('drag-over')});
+  el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('drag-over');const toIdx=parseInt(el.dataset.idx);if(dragIdx!==null&&dragIdx!==toIdx){const item=formImages.splice(dragIdx,1)[0];formImages.splice(toIdx,0,item);formImagesEdited=true;renderImgPrev()}});
+});
+// Touch reorder
+let touchIdx=null,touchClone=null,touchStartY=0,touchStartX=0;
+c.querySelectorAll('.drag-handle').forEach(handle=>{
+  handle.addEventListener('touchstart',e=>{
+    e.preventDefault();const thumb=handle.closest('.image-preview-thumb');touchIdx=parseInt(thumb.dataset.idx);
+    touchClone=thumb.cloneNode(true);touchClone.style.cssText='position:fixed;z-index:999;opacity:0.8;pointer-events:none;width:68px;height:68px;';
+    const t=e.touches[0];touchStartX=t.clientX;touchStartY=t.clientY;
+    touchClone.style.left=(t.clientX-34)+'px';touchClone.style.top=(t.clientY-34)+'px';
+    document.body.appendChild(touchClone);thumb.style.opacity='0.3';
+  },{passive:false});
+});
+document.addEventListener('touchmove',e=>{if(!touchClone)return;const t=e.touches[0];touchClone.style.left=(t.clientX-34)+'px';touchClone.style.top=(t.clientY-34)+'px'},{passive:true});
+document.addEventListener('touchend',e=>{if(touchClone){touchClone.remove();touchClone=null;
+  const t=e.changedTouches[0];const el=document.elementFromPoint(t.clientX,t.clientY);
+  const thumb=el?.closest?.('.image-preview-thumb');
+  if(thumb){const toIdx=parseInt(thumb.dataset.idx);if(touchIdx!==null&&touchIdx!==toIdx){const item=formImages.splice(touchIdx,1)[0];formImages.splice(toIdx,0,item);formImagesEdited=true}}
+  touchIdx=null;renderImgPrev()}
+})}
 
 // ===== RENDER LIST =====
 function renderList(){
@@ -573,7 +631,7 @@ function renderList(){
       const imgs=e.images||(e.image?[e.image]:[]);
       const first=imgs[0];
       html+=`<div class="event-card" onclick="showDetail('${e.id}')" style="animation-delay:${i*0.05}s">
-        ${first?`<div class="event-card-image-wrap"><img class="event-card-image" src="${first}" alt="" loading="lazy">${imgs.length>1?`<span class="image-count-badge">📷 ${imgs.length}</span>`:''}</div>`:''}
+        ${first&&showPreviews?`<div class="event-card-image-wrap"><img class="event-card-image" src="${first}" alt="" loading="lazy">${imgs.length>1?`<span class="image-count-badge">📷 ${imgs.length}</span>`:''}</div>`:''}
         <div class="event-card-body">
           ${e.category?`<span class="category-tag">${esc(e.category)}</span>`:''}
           <div class="event-card-meta"><span class="event-card-date">${fmtDate(e.date)}</span>${e.rating?`<span class="stars">${starsH(e.rating)}</span>`:''}</div>
@@ -606,7 +664,7 @@ function closeDetail(){$('detailView').style.display='none';$('listView').style.
 // ===== MODAL =====
 function openModal(){$('modalOverlay').classList.add('active');document.body.style.overflow='hidden'}
 function closeModal(){$('modalOverlay').classList.remove('active');document.body.style.overflow='';resetForm()}
-function resetForm(){$('titleInput').value='';$('dateInput').value='';$('venueInput').value='';$('categorySelectInput').value='';$('notesInput').value='';formImages=[];formRating=0;editingId=null;$('imagePreviews').innerHTML='';document.querySelectorAll('#starInput button').forEach(b=>b.classList.remove('active'));$('modalTitle').textContent='Neue Erinnerung';$('saveBtn').textContent='Erinnerung speichern'}
+function resetForm(){$('titleInput').value='';$('dateInput').value='';$('venueInput').value='';$('categorySelectInput').value='';$('notesInput').value='';formImages=[];formImagesEdited=false;formRating=0;editingId=null;$('imagePreviews').innerHTML='';document.querySelectorAll('#starInput button').forEach(b=>b.classList.remove('active'));$('modalTitle').textContent='Neue Erinnerung';$('saveBtn').textContent='Erinnerung speichern'}
 $('fabBtn').addEventListener('click',()=>{resetForm();$('dateInput').value=new Date().toISOString().split('T')[0];openModal()});
 $('cancelBtn').addEventListener('click',closeModal);
 $('modalOverlay').addEventListener('click',e=>{if(e.target===$('modalOverlay'))closeModal()});
@@ -622,7 +680,7 @@ $('saveBtn').addEventListener('click',async()=>{
     id:editingId||Date.now().toString(36)+Math.random().toString(36).substr(2,5),
     title,date,venue:$('venueInput').value.trim(),category:$('categorySelectInput').value,
     notes:$('notesInput').value.trim(),rating:formRating,
-    images:formImages.length>0?formImages.map(i=>i.data):(editingId?exImgs:[]),
+    images:formImagesEdited?formImages.map(i=>i.data):(editingId?exImgs:[]),
     createdAt:ex?.createdAt||Date.now(),updatedAt:Date.now()
   };
   await put(ev);allEvents=await getAll();buildMonthFilter();renderList();closeModal();
@@ -636,7 +694,7 @@ function openEdit(id){
   editingId=id;$('titleInput').value=e.title;$('dateInput').value=e.date;
   $('venueInput').value=e.venue||'';$('categorySelectInput').value=e.category||'';
   $('notesInput').value=e.notes||'';formRating=e.rating||0;
-  formImages=(e.images||(e.image?[e.image]:[])).map(d=>({data:d}));
+  formImages=(e.images||(e.image?[e.image]:[])).map(d=>({data:d}));formImagesEdited=false;
   document.querySelectorAll('#starInput button').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.star)<=formRating));
   renderImgPrev();$('modalTitle').textContent='Erinnerung bearbeiten';$('saveBtn').textContent='Änderungen speichern';openModal();
 }
